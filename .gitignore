@@ -1,0 +1,20 @@
+# Dependencies
+node_modules
+
+# Production build
+dist
+dist-ssr
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Env files (agar aap aage chal kar environment variables banate hain)
+.env
+.env.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
