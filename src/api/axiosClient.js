@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 
 
 const API = axios.create({
-  baseURL: 'https://ai-task-manager-backend-production-4622.up.railway.app/',
+  baseURL: 'https://ai-task-manager-backend-production-4622.up.railway.app/api',
   headers: {
     'Content-Type': 'application/json',
   },
