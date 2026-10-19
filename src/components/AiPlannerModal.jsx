@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, X, Clock, AlertTriangle, ArrowRight, CheckCircle2, Loader2, ListPlus } from 'lucide-react';
 import { generateAiPlan, createTask } from '../api/axiosClient';

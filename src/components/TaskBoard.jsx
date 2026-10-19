@@ -1,4 +1,3 @@
-import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Circle, Clock, CheckCircle, Plus } from 'lucide-react';
 import TaskCard from './TaskCard';

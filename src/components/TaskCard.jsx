@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Trash2, Edit3, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
