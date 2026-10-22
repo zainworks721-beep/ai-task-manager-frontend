@@ -1,13 +1,22 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
+/* ── User Session / Header Management ────────────────────────────────── */
+
+const getUserId = () => {
+  let userId = localStorage.getItem('app_user_id');
+  localStorage.getItem('app_user_id')
+  if (!userId) {
+    userId = `user_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`;
+    localStorage.setItem('app_user_id', userId);
+  }
+  return userId;
+};
+
+
 const FALLBACK_BASE_URL =
   'https://ai-task-manager-backend-production-4622.up.railway.app/api';
 
-/**
- * Development uses the Vite proxy (`/api`) so the app runs on any port without
- * tripping the API's CORS allowlist. Production uses VITE_API_URL when set.
- */
 const ENV_BASE_URL = import.meta.env?.VITE_API_URL?.trim();
 
 export const API_BASE_URL = (
@@ -20,7 +29,12 @@ const API = axios.create({
   timeout: 30000,
 });
 
-/* ── Error normalisation ──────────────────────────────────────────────── */
+API.interceptors.request.use((config) => {
+  config.headers['x-user-id'] = getUserId();
+  return config;
+});
+
+
 
 function normaliseError(error) {
   if (error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT') {
@@ -59,29 +73,17 @@ function notify(error, fallback = 'Something went wrong.') {
   toast.error(error?.userMessage || fallback);
 }
 
-/* ── Response shape helpers (defensive against backend drift) ─────────── */
+/* ── Data Helpers ─────────────────────────────────────────────────────── */
 
 function unwrap(response) {
   return response?.data?.data ?? response?.data ?? null;
 }
 
-function extractList(response) {
-  const data = unwrap(response);
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.tasks)) return data.tasks;
-  if (Array.isArray(response?.data?.tasks)) return response.data.tasks;
-  return [];
-}
-
 function normaliseTask(task) {
   if (!task || typeof task !== 'object') return null;
-  const fallbackId =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `task-${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
 
   return {
-    _id: task._id || task.id || fallbackId,
+    _id: task._id || task.id,
     title: typeof task.title === 'string' ? task.title : 'Untitled task',
     description: typeof task.description === 'string' ? task.description : '',
     status: ['pending', 'in-progress', 'completed'].includes(task.status)
@@ -94,12 +96,13 @@ function normaliseTask(task) {
   };
 }
 
-/* ── Tasks ────────────────────────────────────────────────────────────── */
+/* ── Task API Methods ─────────────────────────────────────────────────── */
 
 export async function fetchTasks(status, { silent = false } = {}) {
   try {
     const response = await API.get('/tasks', { params: status ? { status } : {} });
-    return extractList(response).map(normaliseTask).filter(Boolean);
+    const list = unwrap(response);
+    return Array.isArray(list) ? list.map(normaliseTask).filter(Boolean) : [];
   } catch (error) {
     if (!silent) notify(error, 'Could not load your tasks.');
     throw error;
@@ -117,11 +120,6 @@ export async function createTask(taskData, { silent = false } = {}) {
   }
 }
 
-/**
- * Creates many tasks in parallel (the AI planner uses this).
- * A single request for the whole batch would be better — this keeps the
- * existing API contract but removes the N-round-trip latency and N toasts.
- */
 export async function createTasks(tasks) {
   if (!Array.isArray(tasks) || tasks.length === 0) return { created: [], failed: 0 };
 
@@ -159,7 +157,6 @@ export async function updateTask(id, taskData, { silent = false } = {}) {
   }
 }
 
-/** Status-only mutation, used by drag & drop and quick actions. */
 export async function updateTaskStatus(id, status, { silent = true } = {}) {
   try {
     const response = await API.put(`/tasks/${id}`, { status });
@@ -182,20 +179,7 @@ export async function deleteTask(id, { silent = false } = {}) {
   }
 }
 
-/* ── AI planner ───────────────────────────────────────────────────────── */
-
-function normalisePlanSteps(steps) {
-  if (!Array.isArray(steps)) return [];
-  return steps
-    .map((step) => {
-      if (typeof step === 'string') return step.trim();
-      if (step && typeof step === 'object') {
-        return String(step.title || step.step || step.description || '').trim();
-      }
-      return '';
-    })
-    .filter(Boolean);
-}
+/* ── AI Planner API ───────────────────────────────────────────────────── */
 
 export async function generateAiPlan(description) {
   try {
@@ -205,26 +189,21 @@ export async function generateAiPlan(description) {
       throw new Error(response.data?.message || 'Failed to generate a plan.');
     }
 
-    // The backend responds with { success, plan: { summary, steps, ... } }.
-    // Unwrap defensively so both nested and flat shapes work.
-    const payload = response?.data ?? null;
-    const plan =
-      payload?.plan ??
-      payload?.data?.plan ??
-      payload?.data ??
-      payload;
+    const plan = response?.data?.plan || response?.data?.data?.plan || response?.data;
 
     if (!plan || !Array.isArray(plan.steps)) {
       throw new Error('The AI returned an empty plan. Try rephrasing your goal.');
     }
 
     return {
-      summary: plan.summary || plan.title || 'Your execution plan',
+      summary: plan.summary || 'Your execution plan',
       priority: ['high', 'medium', 'low'].includes(String(plan.priority).toLowerCase())
         ? String(plan.priority).toLowerCase()
         : 'medium',
       estimatedHours: Number(plan.estimatedHours) || null,
-      steps: normalisePlanSteps(plan.steps),
+      steps: plan.steps.map((step) =>
+        typeof step === 'string' ? step.trim() : String(step.title || step.step || '').trim()
+      ).filter(Boolean),
     };
   } catch (error) {
     notify(error, 'AI planning failed.');

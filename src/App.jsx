@@ -43,6 +43,7 @@ import { EmptyState } from './components/ui/EmptyState';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 
 export default function App() {
+
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -217,6 +218,7 @@ export default function App() {
     event.preventDefault();
     searchRef.current?.focus();
   });
+
 
   /* ── Render ───────────────────────────────────────────────────────── */
 
