@@ -1,17 +1,51 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en" class="h-full">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238b5cf6'><path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TaskFlow AI — Smart Task Management</title>
-    <!-- Google Fonts Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#080b12" />
+
+    <title>TaskFlow AI — Precision task management</title>
+    <meta
+      name="description"
+      content="TaskFlow AI turns scattered goals into an executable plan. A calm, beautifully engineered workspace for planning, tracking, and shipping work."
+    />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="TaskFlow AI — Precision task management" />
+    <meta
+      property="og:description"
+      content="Turn scattered goals into an executable plan. Plan, track, and ship with an AI architect built in."
+    />
+    <meta property="og:site_name" content="TaskFlow AI" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="TaskFlow AI — Precision task management" />
+    <meta
+      name="twitter:description"
+      content="Turn scattered goals into an executable plan. Plan, track, and ship with an AI architect built in."
+    />
+
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234F46E5'/%3E%3Cpath d='M9 16.75l4.4 4.4L23 11.75' stroke='white' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E"
+    />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234F46E5'/%3E%3Cpath d='M9 16.75l4.4 4.4L23 11.75' stroke='white' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E" />
+
+    <!-- Inter is self-hosted via @fontsource-variable/inter (imported in main.jsx) -->
   </head>
-  <body class="bg-slate-950 text-slate-100 antialiased font-['Plus_Jakarta_Sans',sans-serif] selection:bg-brand-500 selection:text-white min-h-screen">
-    <div id="root"></div>
+  <body class="min-h-dvh bg-surface-muted font-sans text-ink antialiased">
+    <div id="root" class="min-h-dvh"></div>
+    <noscript>
+      <div style="padding: 3rem; text-align: center; font-family: system-ui, sans-serif">
+        <h1 style="font-size: 1.25rem; margin-bottom: 0.5rem">TaskFlow AI needs JavaScript</h1>
+        <p style="color: #aab5c7; font-size: 0.875rem">
+          Please enable JavaScript in your browser to use the workspace.
+        </p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

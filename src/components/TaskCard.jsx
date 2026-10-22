@@ -1,146 +1,198 @@
+import { forwardRef } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Trash2, Edit3, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import {
+  ArrowRight,
+  Calendar,
+  CheckCircle2,
+  Circle,
+  Clock,
+  Pencil,
+  RotateCcw,
+  Trash2,
+  TriangleAlert,
+} from 'lucide-react';
+import { cn } from '../lib/cn';
+import { getDueMeta, DUE_TONES } from '../lib/date';
+import { STATUS_CONFIG } from '../lib/constants';
+import { StatusBadge } from './ui/Badge';
+import { Tooltip } from './ui/Tooltip';
 
-const statusConfig = {
-  'pending': {
-    label: 'Pending',
-    badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    dot: 'bg-amber-400',
+const NEXT_ACTION = {
+  pending: {
+    label: 'Start',
+    next: 'in-progress',
+    icon: Circle,
+    className:
+      'bg-brand-500/10 text-brand-300 ring-brand-500/25 hover:bg-brand-500/15 hover:ring-brand-500/35',
   },
   'in-progress': {
-    label: 'In Progress',
-    badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
-    dot: 'bg-sky-400',
+    label: 'Complete',
+    next: 'completed',
+    icon: CheckCircle2,
+    className:
+      'bg-emerald-500/10 text-emerald-300 ring-emerald-500/25 hover:bg-emerald-500/15 hover:ring-emerald-500/35',
   },
-  'completed': {
-    label: 'Completed',
-    badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    dot: 'bg-emerald-400',
+  completed: {
+    label: 'Reopen',
+    next: 'in-progress',
+    icon: RotateCcw,
+    className:
+      'bg-surface-subtle text-ink-muted ring-line-strong/50 hover:bg-surface-sunken hover:text-ink',
   },
 };
 
-export default function TaskCard({ task, onEdit, onDelete, onStatusChange }) {
-  const currentStatus = statusConfig[task.status] || statusConfig['pending'];
-
-  const formatDate = (dateString) => {
-    if (!dateString) return null;
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch {
-      return null;
-    }
-  };
-
-  const formattedDate = formatDate(task.dueDate);
+const TaskCard = forwardRef(function TaskCard(
+  {
+    task,
+    onEdit,
+    onDelete,
+    onStatusChange,
+    canDrag = false,
+    isDragging = false,
+    onDragStart,
+    onDragEnd,
+  },
+  ref
+) {
+  const status = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
+  const action = NEXT_ACTION[task.status] || NEXT_ACTION.pending;
+  const due = getDueMeta(task.dueDate, task.status);
+  const isDone = task.status === 'completed';
+  const ActionIcon = action.icon;
 
   return (
-    <motion.div
+    <motion.article
+      ref={ref}
       layout
-      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      initial={{ opacity: 0, y: 10, scale: 0.985 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
-      whileHover={{ y: -2 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="group relative bg-slate-900/80 hover:bg-slate-900 border border-slate-800/80 hover:border-slate-700/80 rounded-xl p-4 shadow-sm hover:shadow-xl hover:shadow-black/40 transition-all duration-200"
+      exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.14 } }}
+      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={isDragging ? undefined : { y: -2 }}
+      draggable={canDrag}
+      onDragStart={(event) => {
+        event.dataTransfer.setData('text/plain', task._id);
+        event.dataTransfer.effectAllowed = 'move';
+        onDragStart?.(task);
+      }}
+      onDragEnd={() => onDragEnd?.(task)}
+      className={cn(
+        'group relative rounded-2xl border border-line bg-surface p-4 shadow-xs',
+        'transition-[box-shadow,border-color,opacity] duration-250 ease-out-expo',
+        'hover:border-line-strong hover:shadow-md',
+        canDrag && 'cursor-grab active:cursor-grabbing',
+        isDragging && 'opacity-40 ring-2 ring-brand-400/40'
+      )}
+      aria-label={task.title}
     >
-      {/* Top row: Status Badge & Action Buttons */}
-      <div className="flex items-center justify-between mb-3">
-        <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${currentStatus.badge}`}
-        >
-          <span className={`w-1.5 h-1.5 rounded-full ${currentStatus.dot}`}></span>
-          {currentStatus.label}
-        </span>
+      {/* Status + actions */}
+      <div className="flex items-center justify-between gap-2">
+        <StatusBadge status={task.status} size="xs" />
 
-        {/* Action icons */}
-        <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={() => onEdit(task)}
-            title="Edit Task"
-            className="p-1.5 rounded-md hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => onDelete(task._id)}
-            title="Delete Task"
-            className="p-1.5 rounded-md hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+        <div
+          className={cn(
+            'flex items-center gap-0.5',
+            'max-md:opacity-100 md:opacity-0 md:transition-opacity md:duration-200 md:group-hover:opacity-100 md:group-focus-within:opacity-100'
+          )}
+        >
+          <Tooltip content="Edit task">
+            <button
+              type="button"
+              onClick={() => onEdit?.(task)}
+              aria-label={`Edit ${task.title}`}
+              className="flex size-7 items-center justify-center rounded-md text-ink-subtle transition-colors duration-150 hover:bg-surface-subtle hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50"
+            >
+              <Pencil className="size-3.5" />
+            </button>
+          </Tooltip>
+
+          <Tooltip content="Delete task">
+            <button
+              type="button"
+              onClick={() => onDelete?.(task)}
+              aria-label={`Delete ${task.title}`}
+              className="flex size-7 items-center justify-center rounded-md text-ink-subtle transition-colors duration-150 hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
       {/* Title */}
-      <h3 className={`text-sm font-semibold tracking-tight text-slate-100 mb-1.5 ${task.status === 'completed' ? 'line-through text-slate-400' : ''}`}>
+      <h3
+        className={cn(
+          'mt-3 line-clamp-2 text-[14px] font-semibold leading-snug tracking-tight',
+          isDone ? 'text-ink-subtle line-through decoration-ink-faint/70' : 'text-ink-strong'
+        )}
+      >
         {task.title}
       </h3>
 
       {/* Description */}
       {task.description && (
-        <p className="text-xs text-slate-400 leading-relaxed line-clamp-3 mb-3">
+        <p
+          className={cn(
+            'mt-1.5 line-clamp-2 text-pretty text-[13px] leading-relaxed',
+            isDone ? 'text-ink-subtle' : 'text-ink-muted'
+          )}
+        >
           {task.description}
         </p>
       )}
 
-      {/* Footer: Due date & status progress buttons */}
-      <div className="flex items-center justify-between pt-3 mt-1 border-t border-slate-800/60 text-xs text-slate-400">
-        {formattedDate ? (
-          <div className="flex items-center gap-1.5 text-slate-400">
-            <Calendar className="w-3.5 h-3.5 text-slate-500" />
-            <span>{formattedDate}</span>
-          </div>
+      {/* Footer */}
+      <div className="mt-3.5 flex items-center justify-between gap-2 border-t border-line-soft pt-3">
+        {due ? (
+          <Tooltip content={due.hint} side="bottom">
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11.5px] font-medium leading-none',
+                due.tone === 'overdue' && 'bg-rose-500/10 text-rose-300',
+                due.tone === 'today' && 'bg-amber-500/10 text-amber-300',
+                due.tone === 'soon' && 'bg-amber-500/10 text-amber-300',
+                due.tone === 'normal' && DUE_TONES.normal
+              )}
+            >
+              {due.tone === 'overdue' ? (
+                <TriangleAlert className="size-3" aria-hidden="true" />
+              ) : (
+                <Calendar className="size-3" aria-hidden="true" />
+              )}
+              {due.label}
+            </span>
+          </Tooltip>
         ) : (
-          <span className="text-[11px] text-slate-600 italic">No deadline</span>
+          <span className="text-[11.5px] text-ink-subtle">No due date</span>
         )}
 
-        {/* Quick status stepper buttons */}
-        <div className="flex items-center gap-1">
-          {task.status === 'in-progress' && (
-            <button
-              onClick={() => onStatusChange(task._id, 'pending')}
-              title="Move back to Pending"
-              className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-            </button>
+        <button
+          type="button"
+          onClick={() => onStatusChange?.(task._id, action.next)}
+          aria-label={`${action.label} ${task.title}`}
+          className={cn(
+            'inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11.5px] font-semibold',
+            'ring-1 ring-inset transition-all duration-200 ease-out-expo',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50',
+            'active:scale-95',
+            action.className
           )}
-
-          {task.status === 'pending' && (
-            <button
-              onClick={() => onStatusChange(task._id, 'in-progress')}
-              title="Start Task"
-              className="flex items-center gap-1 px-2 py-0.5 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 text-[11px] font-medium transition"
-            >
-              <span>Start</span>
-              <ArrowRight className="w-3 h-3" />
-            </button>
+        >
+          <ActionIcon className="size-3" aria-hidden="true" />
+          {action.label}
+          {task.status !== 'completed' && (
+            <ArrowRight className="size-3 opacity-60" aria-hidden="true" />
           )}
-
-          {task.status === 'in-progress' && (
-            <button
-              onClick={() => onStatusChange(task._id, 'completed')}
-              title="Mark as Complete"
-              className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[11px] font-medium transition"
-            >
-              <span>Done</span>
-              <CheckCircle2 className="w-3 h-3" />
-            </button>
-          )}
-
-          {task.status === 'completed' && (
-            <button
-              onClick={() => onStatusChange(task._id, 'in-progress')}
-              title="Re-open Task"
-              className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition"
-            >
-              <ArrowLeft className="w-3 h-3" />
-              <span>Reopen</span>
-            </button>
-          )}
-        </div>
+        </button>
       </div>
-    </motion.div>
+
+      {/* Screen-reader status context */}
+      <span className="sr-only">
+        Status: {status.label}. {due ? due.hint : 'No due date.'}
+      </span>
+    </motion.article>
   );
-}
+});
+
+export default TaskCard;
+

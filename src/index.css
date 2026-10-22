@@ -2,46 +2,264 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════════════
+   TaskFlow AI — Design Tokens
+   ═══════════════════════════════════════════════════════════════════════ */
 @layer base {
+  :root {
+    --tf-bg: #080b12;
+    --tf-surface: #10151f;
+    --tf-line: #242d3f;
+    --tf-ink: #e8edf6;
+    --tf-ink-muted: #aab5c7;
+    --tf-brand: #6366f1;
+    --tf-ring: rgb(99 102 241 / 0.45);
+
+    --tf-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --tf-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    --tf-header-h: 4rem;
+    color-scheme: dark;
+  }
+
+  * {
+    @apply border-line;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    scroll-padding-top: calc(var(--tf-header-h) + 1.5rem);
+  }
+
   body {
-    @apply bg-slate-950 text-slate-100 overflow-x-hidden;
+    @apply bg-surface-muted font-sans text-ink antialiased;
+    min-height: 100dvh;
+    font-feature-settings: 'cv02' 1, 'cv03' 1, 'cv04' 1, 'cv11' 1, 'ss03' 1;
+    font-optical-sizing: auto;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: clip;
+
+    /* Ambient premium mesh — two analogous tints only, so it never clashes */
+    background-image:
+      radial-gradient(46rem 30rem at 6% -10%, rgb(99 102 241 / 0.18), transparent 62%),
+      radial-gradient(40rem 26rem at 96% -8%, rgb(139 92 246 / 0.14), transparent 62%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+  }
+
+  ::selection {
+    @apply bg-brand-600/50 text-ink-strong;
+  }
+
+  /* Accessible focus ring for interactive controls (NOT text fields —
+     form inputs intentionally have no focus border per design direction). */
+  :where(a, button, [role='button'], [role='radio'], [role='option'], [role='switch'], [role='tab']):focus-visible {
+    @apply outline-none ring-2 ring-brand-500/60 ring-offset-2 ring-offset-surface;
+  }
+
+  /* Headings default to a tighter, more premium rhythm */
+  h1, h2, h3, h4 {
+    @apply tracking-tightest text-ink-strong;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Numeric values should never jitter while animating */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Kill native number/date spinners for a cleaner surface */
+  input[type='date']::-webkit-calendar-picker-indicator {
+    opacity: 0.45;
+    cursor: pointer;
+    transition: opacity 150ms ease;
+  }
+  input[type='date']::-webkit-calendar-picker-indicator:hover {
+    opacity: 0.85;
+  }
+  input[type='search']::-webkit-search-cancel-button {
+    display: none;
+  }
+
+  /* ── Scrollbars ───────────────────────────────────────────────── */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(148 163 184 / 0.22);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(148 163 184 / 0.38);
+    background-clip: content-box;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184 / 0.28) transparent;
   }
 }
 
-/* Custom Sleek Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* ═══════════════════════════════════════════════════════════════════════
+   Components
+   ═══════════════════════════════════════════════════════════════════════ */
+@layer components {
+  /* Frosted glass panel — dark, airy, Linear flavoured */
+  .glass-panel {
+    @apply border border-white/10 bg-surface/80 backdrop-blur-2xl backdrop-saturate-150;
+    box-shadow:
+      0 1px 0 0 rgb(255 255 255 / 0.06) inset,
+      0 12px 32px -24px rgb(0 0 0 / 0.8);
+  }
+
+  .glass-card {
+    @apply border border-white/10 bg-surface/60 backdrop-blur-xl;
+    box-shadow: 0 1px 0 0 rgb(255 255 255 / 0.04) inset;
+  }
+
+  /* Standard elevated card */
+  .surface-card {
+    @apply rounded-2xl border border-line bg-surface shadow-sm;
+  }
+
+  /* Elevated hover surface */
+  .surface-interactive {
+    @apply transition-all duration-250 ease-out-expo;
+    @apply hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lg;
+  }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-surface-sunken;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0;
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgb(255 255 255 / 0.055) 50%,
+      transparent 100%
+    );
+    background-size: 500px 100%;
+    background-repeat: no-repeat;
+    animation: shimmer 1.8s linear infinite;
+  }
+
+  /* Thin, unobtrusive scroll areas */
+  .scroll-thin {
+    scrollbar-width: thin;
+  }
+
+  /* Fade the horizontal edges of overflow containers */
+  .mask-fade-x {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 1.25rem,
+      #000 calc(100% - 1.25rem),
+      transparent
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 1.25rem,
+      #000 calc(100% - 1.25rem),
+      transparent
+    );
+  }
+
+  /* Gradient text */
+  .text-gradient {
+    @apply bg-gradient-to-br from-ink-strong via-ink to-ink-muted bg-clip-text text-transparent;
+  }
+
+  /* Thin hairline separator that fades at both ends */
+  .hairline {
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--tf-line), transparent);
+  }
 }
 
-::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+/* ═══════════════════════════════════════════════════════════════════════
+   Utilities
+   ═══════════════════════════════════════════════════════════════════════ */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  /* Optical alignment helpers */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Hide scrollbar but keep scrolling */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Drag ghost styling */
+  .dragging {
+    @apply cursor-grabbing select-none;
+  }
+
+  .content-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 120px;
+  }
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.8);
-  border-radius: 9999px;
+/* ═══════════════════════════════════════════════════════════════════════
+   Motion preferences — respect the user, always
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.9);
-}
-
-/* Subtle glassmorphism */
-.glass-panel {
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(51, 65, 85, 0.4);
-}
-
-.glass-card {
-  background: rgba(30, 41, 59, 0.45);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(51, 65, 85, 0.4);
-}
-
-.glass-card:hover {
-  border-color: rgba(139, 92, 246, 0.4);
+/* ═══════════════════════════════════════════════════════════════════════
+   Print
+   ═══════════════════════════════════════════════════════════════════════ */
+@media print {
+  body {
+    background: #fff;
+    color: #111;
+  }
+  .no-print {
+    display: none !important;
+  }
 }

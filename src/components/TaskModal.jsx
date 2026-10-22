@@ -1,186 +1,260 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, AlignLeft, Tag, Check, Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, CheckCircle2, Circle, Clock, Pencil, Plus } from 'lucide-react';
+import { cn } from '../lib/cn';
+import { STATUS_OPTIONS } from '../lib/constants';
+import { toDateInputValue } from '../lib/date';
+import { Modal } from './ui/Modal';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Textarea } from './ui/Textarea';
+import { SegmentedControl } from './ui/SegmentedControl';
 
-export default function TaskModal({ isOpen, onClose, onSubmit, initialTask = null, defaultStatus = 'pending' }) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [status, setStatus] = useState(defaultStatus);
-  const [dueDate, setDueDate] = useState('');
+const STATUS_ICONS = {
+  pending: Circle,
+  'in-progress': Clock,
+  completed: CheckCircle2,
+};
+
+const QUICK_DATES = [
+  { label: 'Today', days: 0 },
+  { label: 'Tomorrow', days: 1 },
+  { label: 'In 3 days', days: 3 },
+  { label: 'Next week', days: 7 },
+];
+
+const INITIAL_FORM = {
+  title: '',
+  description: '',
+  status: 'pending',
+  dueDate: '',
+};
+
+export default function TaskModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  initialTask = null,
+  defaultStatus = 'pending',
+}) {
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const titleRef = useRef(null);
+
+  const isEditing = Boolean(initialTask);
 
   useEffect(() => {
-    if (initialTask) {
-      setTitle(initialTask.title || '');
-      setDescription(initialTask.description || '');
-      setStatus(initialTask.status || 'pending');
-      setDueDate(initialTask.dueDate ? initialTask.dueDate.split('T')[0] : '');
-    } else {
-      setTitle('');
-      setDescription('');
-      setStatus(defaultStatus);
-      setDueDate('');
-    }
+    if (!isOpen) return;
+    setForm(
+      initialTask
+        ? {
+            title: initialTask.title || '',
+            description: initialTask.description || '',
+            status: initialTask.status || 'pending',
+            dueDate: toDateInputValue(initialTask.dueDate),
+          }
+        : { ...INITIAL_FORM, status: defaultStatus }
+    );
+    setErrors({});
+    setLoading(false);
   }, [initialTask, defaultStatus, isOpen]);
 
-  // Handle escape key
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  const statusOptions = useMemo(
+    () =>
+      STATUS_OPTIONS.map((option) => ({
+        ...option,
+        icon: STATUS_ICONS[option.value],
+      })),
+    []
+  );
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!title.trim()) return;
+  const updateField = (key, value) => {
+    setForm((current) => ({ ...current, [key]: value }));
+    setErrors((current) => {
+      if (!current[key]) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const setQuickDate = (days) => {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    updateField('dueDate', toDateInputValue(date));
+  };
+
+  const validate = () => {
+    const next = {};
+    const title = form.title.trim();
+
+    if (!title) next.title = 'A title is required.';
+    else if (title.length < 3) next.title = 'Use at least 3 characters.';
+    else if (title.length > 120) next.title = 'Keep the title under 120 characters.';
+
+    if (form.description.length > 600) {
+      next.description = 'Keep the description under 600 characters.';
+    }
+
+    if (form.dueDate && Number.isNaN(new Date(form.dueDate).getTime())) {
+      next.dueDate = 'That date does not look valid.';
+    }
+
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const handleSubmit = async (event) => {
+    event?.preventDefault?.();
+    if (loading) return;
+    if (!validate()) {
+      titleRef.current?.focus();
+      return;
+    }
 
     setLoading(true);
+
     try {
       await onSubmit({
-        title: title.trim(),
-        description: description.trim(),
-        status,
-        dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+        title: form.title.trim(),
+        description: form.description.trim(),
+        status: form.status,
+        dueDate: form.dueDate ? new Date(`${form.dueDate}T12:00:00`).toISOString() : null,
       });
       onClose();
     } catch {
-      // Error handled in API client toast
+      // Errors are surfaced by the API layer; keep the form open for a retry.
     } finally {
       setLoading(false);
     }
   };
 
+  const handleKeyDown = (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+      event.preventDefault();
+      handleSubmit(event);
+    }
+  };
+
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Blurred Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      dismissible={!loading}
+      size="lg"
+      title={isEditing ? 'Edit task' : 'New task'}
+      description={
+        isEditing
+          ? 'Refine the details and keep your board accurate.'
+          : 'Capture the work. You can always refine it later.'
+      }
+      icon={isEditing ? <Pencil /> : <Plus />}
+      footer={
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <Button
+            variant="secondary"
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            disabled={loading}
+            className="w-full sm:w-auto"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="task-form"
+            loading={loading}
+            leftIcon={!loading ? <Check /> : null}
+            className="w-full sm:w-auto"
+          >
+            {isEditing ? 'Save changes' : 'Create task'}
+          </Button>
+        </div>
+      }
+    >
+      <form id="task-form" onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-4">
+        <Input
+          ref={titleRef}
+          label="Title"
+          required
+          value={form.title}
+          onChange={(event) => updateField('title', event.target.value)}
+          placeholder="e.g. Ship the new onboarding flow"
+          maxLength={120}
+          error={errors.title}
+          autoComplete="off"
+        />
+
+        <Textarea
+          label="Description"
+          value={form.description}
+          onChange={(event) => updateField('description', event.target.value)}
+          placeholder="Add context, acceptance criteria, or useful links…"
+          maxLength={600}
+          autoResize
+          minRows={3}
+          maxRows={8}
+          error={errors.description}
+          hint="Optional — but the more context, the faster it ships."
+        />
+
+        <div className="space-y-2">
+          <span className="block text-[13px] font-medium leading-none text-ink">Status</span>
+          <SegmentedControl
+            options={statusOptions}
+            value={form.status}
+            onChange={(value) => updateField('status', value)}
+            ariaLabel="Task status"
+            fullWidth
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Input
+            type="date"
+            label="Due date"
+            value={form.dueDate}
+            onChange={(event) => updateField('dueDate', event.target.value)}
+            error={errors.dueDate}
+            hint="Optional — leave empty for no deadline."
           />
 
-          {/* Modal Content */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 z-10 overflow-hidden"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <h2 className="text-lg font-bold text-slate-100">
-                {initialTask ? 'Edit Task' : 'Create New Task'}
-              </h2>
+          <div className="flex flex-wrap gap-2">
+            {QUICK_DATES.map((quick) => (
               <button
-                onClick={onClose}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition"
+                key={quick.label}
+                type="button"
+                onClick={() => setQuickDate(quick.days)}
+                className={cn(
+                  'rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium leading-none transition-all duration-150',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50',
+                  'border-line bg-surface text-ink-muted hover:border-line-strong hover:bg-surface-muted hover:text-ink'
+                )}
               >
-                <X className="w-5 h-5" />
+                {quick.label}
               </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-              {/* Title */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                  Title <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Implement OAuth login"
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-brand-500 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none transition shadow-inner"
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
-                  <AlignLeft className="w-3.5 h-3.5 text-slate-500" />
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Add context, acceptance criteria, or links..."
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-brand-500 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none transition resize-none shadow-inner"
-                />
-              </div>
-
-              {/* Status and Due Date */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
-                    <Tag className="w-3.5 h-3.5 text-slate-500" />
-                    Status
-                  </label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-brand-500 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none transition shadow-inner"
-                  >
-                    <option value="pending">To Do (Pending)</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                    Due Date
-                  </label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-brand-500 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none transition shadow-inner"
-                  />
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800 mt-6">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-brand-600 hover:bg-brand-500 text-white shadow-lg shadow-brand-500/25 transition disabled:opacity-50"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>{initialTask ? 'Update Task' : 'Create Task'}</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </motion.div>
+            ))}
+            {form.dueDate && (
+              <button
+                type="button"
+                onClick={() => updateField('dueDate', '')}
+                className="rounded-lg px-2.5 py-1.5 text-[11.5px] font-medium leading-none text-ink-subtle transition-colors hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
-      )}
-    </AnimatePresence>
+
+        <p className="flex items-center gap-1.5 pt-1 text-[11.5px] text-ink-subtle">
+          <kbd className="rounded border border-line bg-surface-muted px-1.5 py-0.5 font-sans text-[10.5px] font-semibold leading-none text-ink-subtle">
+            ⌘
+          </kbd>
+          <kbd className="rounded border border-line bg-surface-muted px-1.5 py-0.5 font-sans text-[10.5px] font-semibold leading-none text-ink-subtle">
+            ↵
+          </kbd>
+          <span>to save from anywhere in the form</span>
+        </p>
+      </form>
+    </Modal>
   );
 }
